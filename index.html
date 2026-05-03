@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morocco · June–July 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --sand:  #fdf6eb;
+  --ink:   #1a1208;
+  --gold:  #c4832a;
+  --teal:  #2d6e6e;
+  --rose:  #c4604a;
+  --muted: #8a7a60;
+  --fog:   #b0a090;
+  --card:  #fffdf7;
+}
+html { scroll-behavior: smooth; }
+body { background: var(--sand); color: var(--ink); font-family: 'Jost', sans-serif; font-weight: 300; overflow-x: hidden; }
+
+/* HERO */
+.hero { position: relative; height: 100vh; min-height: 600px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.hero-bg { position: absolute; inset: 0; background: url('images/sahara.webp') center 30% / cover no-repeat; animation: slowZoom 20s ease-in-out infinite alternate; }
+@keyframes slowZoom { from { transform: scale(1.0); } to { transform: scale(1.06); } }
+.hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(26,18,8,0.05) 0%, rgba(26,18,8,0.15) 40%, rgba(26,18,8,0.82) 75%, rgba(26,18,8,0.96) 100%); }
+.hero-content { position: relative; z-index: 2; padding: clamp(36px,5vw,72px) clamp(28px,6vw,80px); max-width: 860px; }
+.route-badge { display: inline-flex; align-items: center; gap: 10px; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
+.route-badge::before { content: ''; display: block; width: 22px; height: 1px; background: var(--gold); }
+.hero h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(3.2rem, 8vw, 7rem); font-weight: 300; line-height: 0.9; color: var(--sand); letter-spacing: -0.01em; margin-bottom: 28px; }
+.hero h1 em { font-style: italic; color: rgba(245,237,224,0.5); }
+.hero-meta { display: flex; gap: 32px; flex-wrap: wrap; }
+.hero-stat { display: flex; flex-direction: column; gap: 3px; }
+.hero-stat .num { font-family: 'Cormorant Garamond', serif; font-size: 1.85rem; font-weight: 300; color: var(--sand); line-height: 1; }
+.hero-stat .lbl { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--fog); }
+.scroll-cue { position: absolute; bottom: 32px; right: clamp(28px,6vw,80px); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 8px; color: rgba(245,237,224,0.4); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.scroll-cue .drip { width: 1px; height: 40px; background: linear-gradient(to bottom, transparent, rgba(245,237,224,0.4)); animation: drip 2s ease-in-out infinite; }
+@keyframes drip { 0%,100% { transform: scaleY(0.6); opacity:0.4; } 50% { transform: scaleY(1); opacity:1; } }
+
+/* MAP */
+.map-section { padding: 64px clamp(28px,6vw,80px) 48px; background: var(--ink); }
+.eyebrow { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+#overview-map { width: 100%; height: 440px; border-radius: 2px; overflow: hidden; cursor: pointer; }
+.leaflet-tooltip { background: rgba(26,18,8,0.92) !important; border: 1px solid rgba(196,131,42,0.4) !important; box-shadow: none !important; border-radius: 3px !important; padding: 0 !important; }
+.leaflet-tooltip::before { display: none !important; }
+.map-pin-active { filter: drop-shadow(0 0 6px rgba(196,131,42,0.9)); }
+
+/* DAYS HEADING */
+.days-heading { padding: 72px clamp(28px,6vw,80px) 48px; max-width: 720px; }
+.days-heading h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 300; line-height: 1.15; }
+
+/* DAY CARD */
+.day-card { display: grid; grid-template-columns: 1fr 1fr; min-height: 520px; opacity: 0; transform: translateY(36px); transition: opacity 0.7s ease, transform 0.7s ease; border-bottom: 1px solid rgba(196,131,42,0.12); }
+.day-card.visible { opacity: 1; transform: none; }
+.day-card--reverse { direction: rtl; }
+.day-card--reverse > * { direction: ltr; }
+.day-card.map-highlight .day-photo img { transform: scale(1.04); }
+.day-card.map-highlight .day-body { background: #fffbf0; }
+
+.day-photo { position: relative; overflow: hidden; min-height: 420px; }
+.day-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s ease; display: block; }
+.day-card:hover .day-photo img { transform: scale(1.04); }
+.day-photo-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(26,18,8,0.18) 0%, transparent 55%); }
+.day-ghost-num { position: absolute; bottom: -12px; right: -8px; font-family: 'Cormorant Garamond', serif; font-size: 9rem; font-weight: 300; line-height: 1; color: rgba(255,255,255,0.08); pointer-events: none; user-select: none; }
+.day-photo-tag { position: absolute; top: 20px; left: 20px; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(245,237,224,0.8); background: rgba(26,18,8,0.5); padding: 5px 12px; backdrop-filter: blur(4px); }
+.placeholder-tag::after { content: ' · placeholder'; color: rgba(196,131,42,0.75); }
+
+/* MAP PIN BUTTON */
+.map-pin-btn { position: absolute; bottom: 20px; left: 20px; display: flex; align-items: center; gap: 7px; background: rgba(196,131,42,0.85); color: #fff; border: none; padding: 7px 14px; font-family: 'Jost', sans-serif; font-size: 0.65rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; backdrop-filter: blur(4px); transition: background 0.2s; }
+.map-pin-btn:hover { background: rgba(196,131,42,1); }
+.map-pin-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.day-body { padding: clamp(40px,5vw,64px) clamp(32px,5vw,56px); display: flex; flex-direction: column; justify-content: center; background: var(--card); transition: background 0.4s ease; }
+.day-date { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+.day-body h3 { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 400; line-height: 1.1; margin-bottom: 16px; }
+.day-tagline { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.05rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.day-desc { font-size: 0.9rem; line-height: 1.85; color: #3a2e1a; margin-bottom: 24px; }
+.fact-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.08em; background: rgba(196,131,42,0.1); color: var(--muted); padding: 4px 10px; border-radius: 2px; border: 1px solid rgba(196,131,42,0.2); }
+.chip.gold { background: rgba(196,131,42,0.18); color: #8a5a10; border-color: rgba(196,131,42,0.38); }
+
+/* CONNECTOR + SIDE QUESTS */
+.connector { background: var(--ink); padding: 40px clamp(28px,6vw,80px); }
+.connector-inner { max-width: 820px; margin: 0 auto; }
+.connector-travel { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+.connector-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0; box-shadow: 0 0 10px rgba(196,131,42,0.6); }
+.connector-line { flex: 1; height: 1px; background: linear-gradient(to right, rgba(196,131,42,0.5), rgba(196,131,42,0.15)); }
+.connector-label { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(196,131,42,0.75); flex-shrink: 0; }
+.sq-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(245,237,224,0.3); margin-bottom: 16px; }
+.sidequests { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.sidequest { display: flex; gap: 14px; align-items: flex-start; background: rgba(255,255,255,0.04); border: 1px solid rgba(196,131,42,0.15); padding: 16px; border-radius: 2px; transition: border-color 0.2s; }
+.sidequest:hover { border-color: rgba(196,131,42,0.35); }
+.sq-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+.sq-name { font-size: 0.8rem; font-weight: 500; color: rgba(245,237,224,0.85); margin-bottom: 5px; letter-spacing: 0.03em; }
+.sq-note { font-size: 0.78rem; line-height: 1.65; color: rgba(245,237,224,0.5); }
+
+/* PRACTICAL */
+.practical { background: var(--ink); padding: 80px clamp(28px,6vw,80px); }
+.practical h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem,4vw,3rem); font-weight: 300; color: var(--sand); margin-bottom: 48px; }
+.practical-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 28px; }
+.pcard { background: rgba(255,255,255,0.04); border: 1px solid rgba(196,131,42,0.2); padding: 28px; border-radius: 2px; }
+.pcard-title { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+.pcard p { font-size: 0.88rem; line-height: 1.8; color: rgba(245,237,224,0.62); }
+
+/* FOOTER */
+footer { background: var(--ink); border-top: 1px solid rgba(196,131,42,0.15); padding: 40px clamp(28px,6vw,80px); display: flex; align-items: center; gap: 16px; }
+.footer-wm { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300; color: rgba(245,237,224,0.3); }
+.footer-sub { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(196,131,42,0.5); }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .day-card { grid-template-columns: 1fr; }
+  .day-card--reverse { direction: ltr; }
+  .day-photo { min-height: 260px; }
+  .day-ghost-num { font-size: 6rem; }
+  .sidequests { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="route-badge">Morocco · June–July 2026</div>
+    <h1>Land of<br><em>Light &amp;<br>Wonder</em></h1>
+    <div class="hero-meta">
+      <div class="hero-stat"><span class="num">11</span><span class="lbl">Days</span></div>
+      <div class="hero-stat"><span class="num">8</span><span class="lbl">Destinations</span></div>
+      <div class="hero-stat"><span class="num">JFK</span><span class="lbl">Departure</span></div>
+    </div>
+  </div>
+  <div class="scroll-cue"><div class="drip"></div>Scroll</div>
+</section>
+
+<section class="map-section">
+  <div class="eyebrow">The Route — click a pin to jump to that day</div>
+  <div id="overview-map"></div>
+</section>
+
+<div class="days-heading">
+  <h2>Eleven days.<br>Ancient cities, desert silence,<br>and living history.</h2>
+</div>
+
+
+<article class="day-card" id="day1" data-lat="33.5731" data-lng="-7.5898">
+  <div class="day-photo">
+    <img src="images/museum.png" alt="Casablanca &amp; Jewish Heritage">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">01</div>
+    <div class="day-photo-tag">Day 01 · Arrival</div>
+    <button class="map-pin-btn" data-day="day1" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Monday, June 29</div>
+    <h3>Casablanca &amp; Jewish Heritage</h3>
+    <p class="day-tagline">A city more complex than its legend — and a Jewish heritage hiding in plain sight.</p>
+    <p class="day-desc">Arrival into Casablanca, check-in and a freshen-up, then lunch at one of the historic Jewish clubs. The afternoon brings the Museum of Moroccan Jewry, the Beth-El Synagogue, and a rare meeting with the leadership of the Jewish community and the founders of Association Mimouna — including El Mehdi Boudra, the remarkable architect of Muslim-Jewish co-existence in Morocco.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Morocco: largest Jewish museum in the Arab world</span>
+          <span class="chip">Association Mimouna: founded 2007</span>
+          <span class="chip">Beth-El: one of Casablanca's oldest synagogues</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Morning mosque visit · then road to Rabat</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🕌</span>
+      <div>
+        <div class="sq-name">Habous Quarter, Casablanca</div>
+        <div class="sq-note">The 'new medina' built by the French in 1930s Moroccan style — a strange and beautiful colonial simulacrum. Good pastry shops and the Royal Palace of Casablanca nearby.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🌊</span>
+      <div>
+        <div class="sq-name">Corniche, Casablanca</div>
+        <div class="sq-note">The Atlantic seafront promenade stretching west from the Hassan II Mosque. Restaurants, cafés, and the city's best sunset views.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card  day-card--reverse" id="day2" data-lat="33.9716" data-lng="-6.8498">
+  <div class="day-photo">
+    <img src="images/hassan.jpg" alt="Hassan II Mosque &amp; Rabat">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">02</div>
+    <div class="day-photo-tag">Day 02 · Coast &amp; Capital</div>
+    <button class="map-pin-btn" data-day="day2" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Tuesday, June 30</div>
+    <h3>Hassan II Mosque &amp; Rabat</h3>
+    <p class="day-tagline">The world's third largest mosque — built over the Atlantic — and a capital city that rewards the unhurried.</p>
+    <p class="day-desc">A morning visit to the extraordinary Hassan II Mosque, its minaret the tallest religious structure in the world, rising from a platform built over the sea. Then north to Rabat: the mausoleum of Kings Mohammed V and Hassan II, the Royal Palace, and the charming Mellah. Lunch along the waterfront before a late-night flight south to Errashadiya.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Hassan II Mosque: minaret 210m — world's tallest</span>
+          <span class="chip">Capacity: 105,000 worshippers</span>
+          <span class="chip">Rabat: UNESCO World Heritage City</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Late flight south · Errashadiya · gateway to the Sahara</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🏰</span>
+      <div>
+        <div class="sq-name">Chellah Necropolis, Rabat</div>
+        <div class="sq-note">A ruined Roman city and medieval Islamic necropolis inside the same walled complex — storks nesting on the minarets, Roman columns half-buried in undergrowth. Haunting and overlooked.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🎨</span>
+      <div>
+        <div class="sq-name">Oudayas Kasbah, Rabat</div>
+        <div class="sq-note">A blue-and-white painted hilltop fortress at the mouth of the Bou Regreg river. The garden inside is one of the most peaceful spots in Morocco.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card" id="day3" data-lat="31.0997" data-lng="-4.0133">
+  <div class="day-photo">
+    <img src="images/merzouga.jpg" alt="Gateway to the Sahara">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">03</div>
+    <div class="day-photo-tag">Day 03 · The Sahara</div>
+    <button class="map-pin-btn" data-day="day3" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Wednesday, July 1</div>
+    <h3>Gateway to the Sahara</h3>
+    <p class="day-tagline">The road south ends at the dunes. The silence begins.</p>
+    <p class="day-desc">A visit to the historic Synagogue of Errashadiya, then travel southward through Erfoud and Merzouga to Auberge Timbouktu — your base in the Sahara. An afternoon of Gnawa music and a meeting with the Moroccan Bedouin that most travelers never encounter. The desert here is not empty; it is full.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Erg Chebbi dunes: up to 150m / 500ft high</span>
+          <span class="chip">Gnawa: UNESCO Intangible Heritage 2019</span>
+          <span class="chip">Auberge Timbouktu: desert base camp</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Before dawn · sunrise over 50-story dunes · then north to the Atlas</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🐪</span>
+      <div>
+        <div class="sq-name">Camel Trek into Erg Chebbi</div>
+        <div class="sq-note">An hour by camel into the dunes at sunset, spending the night in a desert camp. Cold in winter, warm in July — and worth it entirely. The silence before dawn is the sound you'll remember.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🎵</span>
+      <div>
+        <div class="sq-name">Gnawa Night Music</div>
+        <div class="sq-note">Gnawa is a trance-music tradition brought to Morocco by sub-Saharan slaves — ceremonial, hypnotic, and recognized by UNESCO. Merzouga has some of the most authentic practitioners in the country.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card  day-card--reverse" id="day4" data-lat="31.3626" data-lng="-7.2017">
+  <div class="day-photo">
+    <img src="images/atlas.avif" alt="Sunrise on the Dunes &amp; High Atlas">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">04</div>
+    <div class="day-photo-tag placeholder-tag">Day 04 · High Atlas</div>
+    <button class="map-pin-btn" data-day="day4" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Thursday, July 2</div>
+    <h3>Sunrise on the Dunes &amp; High Atlas</h3>
+    <p class="day-tagline">The Sahara at dawn, then the mountains by evening — two worlds in a single day.</p>
+    <p class="day-desc">Rise before the sun to watch it climb over dunes fifty stories tall. Then an early departure north and west to Telouet, deep in the High Atlas Mountains. Evening in the village with Agwach dancing and singing — a living Berber tradition of the highlands that has survived centuries unchanged.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Telouet Kasbah: seat of the El Glaoui dynasty</span>
+          <span class="chip">High Atlas: peaks above 4,000m</span>
+          <span class="chip">Agwach: traditional Berber folk performance</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Departure for Marrakech · Shabbat approaches</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🏔️</span>
+      <div>
+        <div class="sq-name">Todra Gorge</div>
+        <div class="sq-note">A 300-metre slot canyon of rose-red limestone, narrow enough in places to touch both walls. On the route between Merzouga and the Atlas — a stop that earns its detour.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🎬</span>
+      <div>
+        <div class="sq-name">Aït Benhaddou</div>
+        <div class="sq-note">A UNESCO-listed ksar (fortified village) near Ouarzazate that has appeared in Lawrence of Arabia, Gladiator, and Game of Thrones. The real thing is more impressive than any film set.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card" id="day5" data-lat="31.6295" data-lng="-7.9811">
+  <div class="day-photo">
+    <img src="images/lazama.webp" alt="Marrakech &amp; the Mellah">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">05</div>
+    <div class="day-photo-tag placeholder-tag">Day 05 · Marrakech</div>
+    <button class="map-pin-btn" data-day="day5" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Friday, July 3</div>
+    <h3>Marrakech &amp; the Mellah</h3>
+    <p class="day-tagline">The ancient Jewish Quarter as Shabbat descends over the Red City.</p>
+    <p class="day-desc">Arrival in Marrakech and an afternoon in the Mellah — the historic Jewish Quarter, one of the oldest in Morocco. As sundown approaches, Shabbat services at the 500-year-old Al-Azama Synagogue, followed by a homemade Moroccan Shabbat dinner in the synagogue's ancient courtyard.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Al-Azama Synagogue: over 500 years old</span>
+          <span class="chip">Mellah: established 1557 by the Saadian dynasty</span>
+          <span class="chip">Shabbat dinner in the synagogue courtyard</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Shabbat · Saturday July 4</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🌿</span>
+      <div>
+        <div class="sq-name">Bahia Palace</div>
+        <div class="sq-note">A 19th-century vizier's palace of 160 rooms built to be the greatest of its time. The tiled courtyards and painted cedar ceilings are among the finest examples of Moroccan domestic architecture.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">⚰️</span>
+      <div>
+        <div class="sq-name">Saadian Tombs</div>
+        <div class="sq-note">Sealed by a jealous sultan in the 17th century and only rediscovered in 1917 — the burial site of the Saadian dynasty, with some of the most intricate stucco and tilework in Marrakech.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card  day-card--reverse" id="day6" data-lat="31.6295" data-lng="-7.9811">
+  <div class="day-photo">
+    <img src="images/majorelle.jpg" alt="Shabbat in Marrakech">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">06</div>
+    <div class="day-photo-tag">Day 06 · Shabbat</div>
+    <button class="map-pin-btn" data-day="day6" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Saturday, July 4</div>
+    <h3>Shabbat in Marrakech</h3>
+    <p class="day-tagline">A day of rest — Moroccan style. Kosher lunch, cobalt gardens, and the world's most famous square after dark.</p>
+    <p class="day-desc">Morning services for those who wish. A traditional home-cooked kosher Shabbat lunch, then the afternoon at leisure: the extraordinary cobalt world of the Jardin Majorelle, walking tours through the city's layered neighbourhoods. As evening falls, Jemaa el-Fna — the world-famous square — comes alive, closing with a cooking lesson in Moroccan specialties.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Jardin Majorelle: designed 1923, restored by Yves Saint Laurent</span>
+          <span class="chip">Jemaa el-Fna: UNESCO Intangible Heritage</span>
+          <span class="chip">Home-cooked kosher Shabbat lunch</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">Sunday morning · south to the Souss Valley</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🛍️</span>
+      <div>
+        <div class="sq-name">Marrakech Souks</div>
+        <div class="sq-note">The medina souks are organized by trade — dyers, leather workers, spice merchants, lamp makers — each quarter its own sensory world. Bargaining is expected; treat it as conversation, not combat.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🍽️</span>
+      <div>
+        <div class="sq-name">Nomad Restaurant</div>
+        <div class="sq-note">The best rooftop view of the Marrakech medina with modern Moroccan food. The lamb pastilla is the dish to order. Book ahead.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card" id="day7" data-lat="30.4702" data-lng="-8.877">
+  <div class="day-photo">
+    <img src="images/taroudant.jpg" alt="Taroudant &amp; Arazane">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">07</div>
+    <div class="day-photo-tag placeholder-tag">Day 07 · Taroudant</div>
+    <button class="map-pin-btn" data-day="day7" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Sunday, July 5</div>
+    <h3>Taroudant &amp; Arazane</h3>
+    <p class="day-tagline">The grandmother of Marrakech — older, quieter, and less discovered.</p>
+    <p class="day-desc">A morning visit to the Medinah of Marrakech before departing south for Taroudant — the ancient Berber walled city in the Souss Valley, often described as a smaller, more authentic Marrakech. From there, the village of Arazane and a meeting with Harim, a keeper of remarkable local knowledge and living tradition.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Taroudant: ancient Saadian capital, 16th century</span>
+          <span class="chip">Souss Valley: Argan oil heartland</span>
+          <span class="chip">City walls: 7.5km intact circuit</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">West to the Atlantic · Essaouira</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🫒</span>
+      <div>
+        <div class="sq-name">Argan Oil Cooperative</div>
+        <div class="sq-note">The Souss Valley is the only place in the world where argan trees grow wild. Women's cooperatives produce the oil by hand — a slow, labour-intensive process. Visiting one is a purchase worth making.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🏇</span>
+      <div>
+        <div class="sq-name">Taroudant Market</div>
+        <div class="sq-note">The Tuesday and Thursday souks in Taroudant are among the most authentic in southern Morocco — serving local Berber traders rather than tourists. Leather, spices, and live animals.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+<article class="day-card  day-card--reverse" id="day8" data-lat="31.5085" data-lng="-9.7595">
+  <div class="day-photo">
+    <img src="images/essaouira.png" alt="Essaouira">
+    <div class="day-photo-overlay"></div>
+    <div class="day-ghost-num">08</div>
+    <div class="day-photo-tag">Days 08–10 · Essaouira</div>
+    <button class="map-pin-btn" data-day="day8" title="Show on map">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      View on map
+    </button>
+  </div>
+  <div class="day-body">
+    <div class="day-date">Monday–Wednesday, July 6–8</div>
+    <h3>Essaouira</h3>
+    <p class="day-tagline">A windswept Atlantic fortress where the medina is blue and white, the fish is fresh, and the light is unlike anywhere else in Morocco.</p>
+    <p class="day-desc">Three days in one of Morocco's most magnificent cities. Monday brings the first intoxicating taste of this fortified port. Tuesday is full: a meeting with Moroccan high school teachers, deep exploration of the medina, the ancient ramparts, and the bustling fishing harbor. Wednesday morning in Essaouira before the road turns back toward Marrakech.</p>
+    <div class="fact-chips">
+      <span class="chip gold">Essaouira Medina: UNESCO World Heritage since 2001</span>
+          <span class="chip">Known as "the Wind City of Africa"</span>
+          <span class="chip">Gnawa Music Festival held here annually</span>
+    </div>
+  </div>
+</article>
+<div class="connector">
+  <div class="connector-inner">
+    <div class="connector-travel">
+      <div class="connector-dot"></div>
+      <div class="connector-line"></div>
+      <div class="connector-label">July 9 · Morning flight Marrakech → Casablanca → New York</div>
+      <div class="connector-line"></div>
+      <div class="connector-dot"></div>
+    </div>
+    <div class="sq-label">If you have time…</div>
+    <div class="sidequests">
+    <div class="sidequest">
+      <span class="sq-icon">🐟</span>
+      <div>
+        <div class="sq-name">Fishing Harbor at Dawn</div>
+        <div class="sq-note">The blue-painted fishing boats return before sunrise. The harbor market that follows — chaotic, aromatic, utterly alive — is over by 8am. Worth the early alarm.</div>
+      </div>
+    </div>
+    <div class="sidequest">
+      <span class="sq-icon">🎸</span>
+      <div>
+        <div class="sq-name">Gnawa Music of Essaouira</div>
+        <div class="sq-note">Essaouira is the spiritual home of Gnawa music — the annual festival draws 500,000 people. Year-round, the musicians play in the squares of the medina. Jimi Hendrix visited in 1969 and never quite left.</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<section class="practical">
+  <h2>Before you go.</h2>
+  <div class="practical-grid">
+    <div class="pcard"><div class="pcard-title">Packing for July</div><p>July is hot — Marrakech regularly hits 100°F+. Lightweight, loose, modest clothing is both practical and respectful. Layers for the Sahara night (cold even in summer). Good walking shoes for medina stones. Sunscreen and a hat are non-negotiable.</p></div>
+    <div class="pcard"><div class="pcard-title">Shabbat Observance</div><p>Friday evening and Saturday are built into the itinerary with the Jewish communities of Marrakech. Services at Al-Azama Synagogue are offered to all, as is the kosher Shabbat lunch. No planning required — it is all arranged.</p></div>
+    <div class="pcard"><div class="pcard-title">Money in Morocco</div><p>The Moroccan dirham cannot be exported, so exchange on arrival. Cash is essential in medinas, souks, and desert camps. Cards work in larger Marrakech hotels but not reliably elsewhere. Bargaining is expected in the souks — remain cheerful, it is theatre as much as commerce.</p></div>
+    <div class="pcard"><div class="pcard-title">The Sahara Night</div><p>The overnight at Auberge Timbouktu is the experiential peak of the trip. Set an alarm for well before sunrise — the light on the dunes in the first fifteen minutes of day is the image you will carry home.</p></div>
+    <div class="pcard"><div class="pcard-title">Photography</div><p>Always ask before photographing people in the medinas — it is both respectful and often leads to a more interesting encounter. The Hassan II Mosque interior is one of the most photographed in Africa; guided tours include it.</p></div>
+    <div class="pcard"><div class="pcard-title">This Trip's Organizer</div><p>This journey is organized through Kivunim, whose Morocco programs focus on Jewish heritage, Muslim-Jewish dialogue, and deep cultural encounter. The access to communities and individuals on this itinerary is the product of years of relationships.</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-wm">Morocco</div>
+  <div class="footer-sub">June 28 – July 9, 2026 · kivunim.org</div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  const stops = [
+    { id: "day1", name: "Casablanca & Jewish Heritage", lat: 33.5731, lng: -7.5898 },
+    { id: "day2", name: "Hassan II Mosque & Rabat", lat: 33.9716, lng: -6.8498 },
+    { id: "day3", name: "Gateway to the Sahara", lat: 31.0997, lng: -4.0133 },
+    { id: "day4", name: "Sunrise on the Dunes & High Atlas", lat: 31.3626, lng: -7.2017 },
+    { id: "day5", name: "Marrakech & the Mellah", lat: 31.6295, lng: -7.9811 },
+    { id: "day6", name: "Shabbat in Marrakech", lat: 31.6295, lng: -7.9811 },
+    { id: "day7", name: "Taroudant & Arazane", lat: 30.4702, lng: -8.877 },
+    { id: "day8", name: "Essaouira", lat: 31.5085, lng: -9.7595 }
+  ];
+
+  // ── MAP ──
+  const map = L.map('overview-map', {
+    zoomControl: true, scrollWheelZoom: false, attributionControl: false
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 14
+  }).addTo(map);
+
+  const latlngs = stops.map(s => [s.lat, s.lng]);
+  L.polyline(latlngs, { color: '#c4832a', weight: 2, opacity: 0.7, dashArray: '6,6' }).addTo(map);
+
+  const markers = {};
+
+  function makeIcon(active) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:${active?13:9}px;height:${active?13:9}px;background:#c4832a;border-radius:50%;border:2px solid rgba(253,246,235,${active?1:0.75});box-shadow:0 0 ${active?14:7}px rgba(196,131,42,${active?0.9:0.5});transition:all .3s"></div>`,
+      iconSize: [active?13:9, active?13:9], iconAnchor: [active?6.5:4.5, active?6.5:4.5]
+    });
+  }
+
+  stops.forEach((s, i) => {
+    const m = L.marker([s.lat, s.lng], { icon: makeIcon(false) }).addTo(map)
+      .bindTooltip(
+        `<span style="font-family:Jost,sans-serif;font-size:12px;color:#fdf6eb;padding:5px 12px;display:block">${i+1}. ${s.name}</span>`,
+        { direction: 'right', opacity: 1 }
+      );
+    m.on('click', () => activateDay(s.id));
+    markers[s.id] = m;
+  });
+
+  const poly = L.polyline(latlngs, { color: '#c4832a', weight: 2, opacity: 0.7, dashArray: '6,6' });
+  map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [40, 40] });
+
+  // ── ACTIVATE DAY ──
+  let activeId = null;
+  function activateDay(id) {
+    // reset previous
+    if (activeId) {
+      markers[activeId].setIcon(makeIcon(false));
+      const prev = document.getElementById(activeId);
+      if (prev) prev.classList.remove('map-highlight');
+    }
+    activeId = id;
+    markers[id].setIcon(makeIcon(true));
+
+    const stop = stops.find(s => s.id === id);
+    map.flyTo([stop.lat, stop.lng], 9, { duration: 1.2 });
+
+    const card = document.getElementById(id);
+    if (card) {
+      card.classList.add('map-highlight');
+      setTimeout(() => {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 800);
+    }
+  }
+
+  // ── PIN BUTTONS ON CARDS ──
+  document.querySelectorAll('.map-pin-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = btn.dataset.day;
+      activateDay(id);
+      document.getElementById('overview-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
+  // ── SCROLL REVEAL ──
+  const cards = document.querySelectorAll('.day-card');
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  cards.forEach(c => io.observe(c));
+
+});
+</script>
+</body>
+</html>
